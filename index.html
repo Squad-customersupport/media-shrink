@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mp4 → animated webp（500KB以下）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFF2;
+    --panel:#FFFFFF;
+    --ink:#171C24;
+    --ink-2:#5B6472;
+    --rule:#C6CCD4;
+    --over:#C4462B;
+    --under:#1F6F5C;
+    --limit:#171C24;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"IBM Plex Sans JP",system-ui,sans-serif;
+    font-size:14px;
+    line-height:1.7;
+    padding:32px 20px 80px;
+  }
+  .wrap{max-width:860px;margin:0 auto}
+
+  header{border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:28px}
+  .eyebrow{
+    font-family:"IBM Plex Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--ink-2);margin-bottom:6px;
+  }
+  h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:0}
+  header p{margin:8px 0 0;color:var(--ink-2);font-size:13px}
+
+  .panel{background:var(--panel);border:1px solid var(--rule);padding:20px;margin-bottom:20px}
+  .panel h2{
+    font-family:"IBM Plex Mono",monospace;
+    font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-2);margin:0 0 14px;font-weight:500;
+  }
+
+  .drop{
+    border:2px dashed var(--rule);padding:34px 20px;text-align:center;
+    cursor:pointer;transition:border-color .15s,background .15s;
+  }
+  .drop:hover,.drop.hot{border-color:var(--ink);background:#F6F8FA}
+  .drop strong{display:block;font-size:15px;margin-bottom:4px}
+  .drop span{color:var(--ink-2);font-size:12px}
+  .drop:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+
+  .meta{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-2);
+    margin-top:14px;display:none;
+  }
+  .meta.show{display:block}
+
+  .fields{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media(max-width:640px){.fields{grid-template-columns:repeat(2,1fr)}}
+  label{display:block}
+  label .cap{
+    font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--ink-2);display:block;margin-bottom:5px;
+  }
+  input[type=number]{
+    width:100%;padding:8px 10px;border:1px solid var(--rule);background:var(--paper);
+    font-family:"IBM Plex Mono",monospace;font-size:14px;color:var(--ink);border-radius:0;
+  }
+  input[type=number]:focus{outline:2px solid var(--ink);outline-offset:-1px}
+  .fields.trim{margin-top:14px}
+  .span2{grid-column:span 2;display:flex;flex-direction:column;justify-content:flex-end}
+  .lenout{
+    font-family:"IBM Plex Mono",monospace;font-size:14px;padding:8px 0;
+    border-bottom:1px solid var(--rule);color:var(--ink);
+  }
+  .lenout.bad{color:var(--over)}
+
+  button.run{
+    margin-top:18px;width:100%;padding:13px;border:none;background:var(--ink);color:#fff;
+    font-family:"IBM Plex Sans JP",sans-serif;font-size:14px;font-weight:600;cursor:pointer;
+  }
+  button.run:disabled{background:var(--rule);color:#8A929C;cursor:not-allowed}
+  button.run:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+  .status{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-2);
+    margin-top:12px;min-height:20px;
+  }
+
+  /* --- 圧縮の降り方（signature） --- */
+  #ladder{display:none}
+  #ladder.show{display:block}
+  .track{position:relative;padding-top:20px;--barLeft:160px;--barW:calc(100% - 248px)}
+  .limit{
+    position:absolute;top:0;bottom:0;width:0;border-left:2px solid var(--limit);
+  }
+  .limit .tag{
+    position:absolute;top:0;left:6px;font-family:"IBM Plex Mono",monospace;
+    font-size:10px;letter-spacing:.08em;white-space:nowrap;color:var(--limit);
+  }
+  .row{display:grid;grid-template-columns:150px 1fr 78px;gap:10px;align-items:center;margin-bottom:7px}
+  .row .params{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-2)}
+  .row .bar{height:16px;background:var(--rule);position:relative}
+  .row .bar i{display:block;height:100%;background:var(--over);width:0;transition:width .35s ease}
+  .row.pass .bar i{background:var(--under)}
+  .row .size{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;text-align:right;color:var(--over);
+  }
+  .row.pass .size{color:var(--under);font-weight:600}
+  .row.pending .bar i{background:var(--rule)}
+  .row.pending .size{color:var(--ink-2)}
+  @media(max-width:640px){
+    .row{grid-template-columns:118px 1fr 66px}
+    .row .params{font-size:10px}
+    .track{--barLeft:128px;--barW:calc(100% - 204px)}
+  }
+
+  #result{display:none}
+  #result.show{display:block}
+  .out{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+  .out img{max-width:350px;width:100%;border:1px solid var(--rule);background:#fff}
+  .out .side{flex:1;min-width:200px}
+  dl{margin:0;font-family:"IBM Plex Mono",monospace;font-size:12px}
+  dl div{display:flex;justify-content:space-between;border-bottom:1px solid var(--rule);padding:6px 0}
+  dt{color:var(--ink-2)}
+  a.dl{
+    display:block;margin-top:16px;padding:12px;background:var(--under);color:#fff;
+    text-align:center;text-decoration:none;font-weight:600;font-size:14px;
+  }
+  a.dl:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .warn{color:var(--over);font-weight:500}
+  footer{
+    margin-top:26px;font-size:12px;color:var(--ink-2);
+    border-top:1px solid var(--rule);padding-top:14px;
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">mp4 → animated webp</div>
+  <h1>500KBに収まるまで、順番に落とす</h1>
+  <p>横幅350pxから開始。超えていたら fps → 画質 → 横幅 の順で1段ずつ下げ、最初に収まった時点で止めます。落としたくないときは、先に切り出し範囲を狭めてください。変換はすべてブラウザ内で行い、ファイルはどこにも送信されません。</p>
+</header>
+
+<div class="panel">
+  <h2>1. 動画を選ぶ</h2>
+  <div class="drop" id="drop" tabindex="0" role="button" aria-label="mp4ファイルを選択">
+    <strong>mp4をドロップ、またはクリックして選択</strong>
+    <span>音声は破棄されます</span>
+  </div>
+  <input type="file" id="file" accept="video/mp4,video/*" hidden>
+  <div class="meta" id="meta"></div>
+</div>
+
+<div class="panel">
+  <h2>2. 開始条件</h2>
+  <div class="fields">
+    <label><span class="cap">横幅 px</span><input type="number" id="w" value="350" min="80" max="1200" step="10"></label>
+    <label><span class="cap">画質 0–1</span><input type="number" id="q" value="0.9" min="0.2" max="1" step="0.05"></label>
+    <label><span class="cap">fps</span><input type="number" id="f" value="12" min="2" max="30" step="1"></label>
+    <label><span class="cap">上限 KB</span><input type="number" id="t" value="500" min="50" max="5000" step="10"></label>
+  </div>
+  <div class="fields trim">
+    <label><span class="cap">開始 秒</span><input type="number" id="s0" value="0" min="0" step="0.1"></label>
+    <label><span class="cap">終了 秒</span><input type="number" id="s1" value="0" min="0" step="0.1"></label>
+    <div class="span2"><span class="cap">切り出す長さ</span><div class="lenout" id="len">—</div></div>
+  </div>
+  <button class="run" id="run" disabled>変換する</button>
+  <div class="status" id="status"></div>
+</div>
+
+<div class="panel" id="ladder">
+  <h2>3. 試した組み合わせ</h2>
+  <div class="track" id="track"><div class="limit" id="limit"><span class="tag"></span></div></div>
+</div>
+
+<div class="panel" id="result">
+  <h2>4. 結果</h2>
+  <div class="out">
+    <img id="preview" alt="変換結果のプレビュー">
+    <div class="side">
+      <dl id="specs"></dl>
+      <a class="dl" id="download" download="output.webp">webpをダウンロード</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Chrome専用。animated webpはVP8フレームを自前でRIFFに束ねています。うまく再生されない動画があれば教えてください。
+</footer>
+
+</div>
+
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+const el = {
+  drop:$('drop'), file:$('file'), meta:$('meta'), run:$('run'), status:$('status'),
+  ladder:$('ladder'), track:$('track'), limit:$('limit'),
+  result:$('result'), preview:$('preview'), specs:$('specs'), download:$('download'),
+  w:$('w'), q:$('q'), f:$('f'), t:$('t'), s0:$('s0'), s1:$('s1'), len:$('len')
+};
+
+let videoFile = null;
+let videoEl = null;
+let masters = null;          // {frames:[Blob(png)], w, h, fps}
+const encodeCache = new Map();
+let lastURL = null;
+
+/* ---------- ファイル選択 ---------- */
+el.drop.addEventListener('click', () => el.file.click());
+el.drop.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.file.click(); }
+});
+['dragenter','dragover'].forEach(t => el.drop.addEventListener(t, e => {
+  e.preventDefault(); el.drop.classList.add('hot');
+}));
+['dragleave','drop'].forEach(t => el.drop.addEventListener(t, e => {
+  e.preventDefault(); el.drop.classList.remove('hot');
+}));
+el.drop.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if (f) pickFile(f);
+});
+el.file.addEventListener('change', () => {
+  if (el.file.files[0]) pickFile(el.file.files[0]);
+});
+
+async function pickFile(f) {
+  videoFile = f;
+  masters = null;
+  encodeCache.clear();
+  el.result.classList.remove('show');
+  el.ladder.classList.remove('show');
+  el.status.textContent = '読み込み中…';
+  try {
+    videoEl = await loadVideo(f);
+  } catch (err) {
+    el.status.innerHTML = '<span class="warn">' + err.message + '</span>';
+    el.run.disabled = true;
+    return;
+  }
+  el.meta.classList.add('show');
+  el.meta.textContent =
+    f.name + ' / ' + videoEl.videoWidth + '×' + videoEl.videoHeight +
+    ' / ' + videoEl.duration.toFixed(2) + '秒 / ' + fmtSize(f.size);
+  el.s0.value = 0;
+  el.s0.max = videoEl.duration.toFixed(2);
+  el.s1.value = videoEl.duration.toFixed(2);
+  el.s1.max = videoEl.duration.toFixed(2);
+  updateLen();
+  el.status.textContent = '';
+  el.run.disabled = false;
+}
+
+el.s0.addEventListener('input', updateLen);
+el.s1.addEventListener('input', updateLen);
+
+function trimRange() {
+  const dur = videoEl ? videoEl.duration : 0;
+  const a = clamp(+el.s0.value, 0, dur);
+  const b = clamp(+el.s1.value, 0, dur);
+  return { t0: Math.min(a, b), t1: Math.max(a, b) };
+}
+
+function updateLen() {
+  if (!videoEl) return;
+  const { t0, t1 } = trimRange();
+  const span = t1 - t0;
+  el.len.textContent = span.toFixed(2) + ' 秒';
+  el.len.classList.toggle('bad', span < 0.1);
+  el.run.disabled = span < 0.1;
+}
+
+function loadVideo(file) {
+  return new Promise((resolve, reject) => {
+    const v = document.createElement('video');
+    v.preload = 'auto';
+    v.muted = true;
+    v.playsInline = true;
+    v.src = URL.createObjectURL(file);
+    v.onloadedmetadata = () => {
+      if (!isFinite(v.duration) || v.duration <= 0) {
+        reject(new Error('長さを取得できませんでした。別のmp4で試してください。'));
+      } else {
+        resolve(v);
+      }
+    };
+    v.onerror = () => reject(new Error('この動画は読み込めませんでした。'));
+  });
+}
+
+/* ---------- フレーム抽出 ---------- */
+function seekTo(v, t) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      v.removeEventListener('seeked', on);
+      reject(new Error('シークに失敗しました（' + t.toFixed(2) + '秒）'));
+    }, 8000);
+    function on() {
+      clearTimeout(timer);
+      v.removeEventListener('seeked', on);
+      resolve();
+    }
+    v.addEventListener('seeked', on);
+    v.currentTime = Math.min(t, Math.max(0, v.duration - 0.01));
+  });
+}
+
+const MAX_FRAMES = 360;
+
+async function extractMasters(v, wantFps, maxW, t0, t1) {
+  const dur = t1 - t0;
+  let fps = wantFps;
+  if (dur * fps > MAX_FRAMES) fps = Math.max(2, Math.floor(MAX_FRAMES / dur));
+  const w = Math.min(maxW, v.videoWidth);
+  const h = Math.max(1, Math.round(w * v.videoHeight / v.videoWidth));
+  const c = new OffscreenCanvas(w, h);
+  const ctx = c.getContext('2d');
+  const step = 1 / fps;
+  const total = Math.max(1, Math.round(dur / step));
+  const frames = [];
+  for (let i = 0; i < total; i++) {
+    await seekTo(v, t0 + i * step);
+    ctx.drawImage(v, 0, 0, w, h);
+    frames.push(await c.convertToBlob({ type: 'image/png' }));
+    el.status.textContent = 'フレーム抽出 ' + (i + 1) + ' / ' + total + '（' + fps + 'fps）';
+    if (i % 8 === 0) await new Promise(r => setTimeout(r, 0));
+  }
+  return { frames, w, h, fps, t0, t1 };
+}
+
+/* ---------- WebPエンコード ---------- */
+async function encodeAt(width, quality) {
+  const key = width + '|' + quality;
+  if (encodeCache.has(key)) return encodeCache.get(key);
+  const h = Math.max(1, Math.round(width * masters.h / masters.w));
+  const c = new OffscreenCanvas(width, h);
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  const data = [];
+  for (let i = 0; i < masters.frames.length; i++) {
+    const bmp = await createImageBitmap(masters.frames[i]);
+    ctx.clearRect(0, 0, width, h);
+    ctx.drawImage(bmp, 0, 0, width, h);
+    bmp.close();
+    const blob = await c.convertToBlob({ type: 'image/webp', quality });
+    data.push(extractImageChunks(await blob.arrayBuffer()));
+    if (i % 8 === 0) await new Promise(r => setTimeout(r, 0));
+  }
+  const rec = { data, w: width, h };
+  encodeCache.set(key, rec);
+  return rec;
+}
+
+/* ---------- RIFF / animated webp ---------- */
+function w24(a, o, v) { a[o] = v & 255; a[o + 1] = (v >> 8) & 255; a[o + 2] = (v >> 16) & 255; }
+
+function makeChunk(fourcc, data) {
+  const pad = data.length & 1;
+  const out = new Uint8Array(8 + data.length + pad);
+  for (let i = 0; i < 4; i++) out[i] = fourcc.charCodeAt(i);
+  new DataView(out.buffer).setUint32(4, data.length, true);
+  out.set(data, 8);
+  return out;
+}
+
+function concat(parts) {
+  let n = 0;
+  for (const p of parts) n += p.length;
+  const out = new Uint8Array(n);
+  let o = 0;
+  for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+
+function extractImageChunks(buf) {
+  const u8 = new Uint8Array(buf);
+  const dv = new DataView(buf);
+  const tag = String.fromCharCode(u8[0], u8[1], u8[2], u8[3]);
+  if (tag !== 'RIFF') throw new Error('WebPの解析に失敗しました');
+  let off = 12;
+  const parts = [];
+  while (off + 8 <= u8.length) {
+    const cc = String.fromCharCode(u8[off], u8[off + 1], u8[off + 2], u8[off + 3]);
+    const size = dv.getUint32(off + 4, true);
+    if (cc === 'ALPH' || cc === 'VP8 ' || cc === 'VP8L') {
+      parts.push(makeChunk(cc, u8.subarray(off + 8, off + 8 + size)));
+    }
+    off += 8 + size + (size & 1);
+  }
+  if (!parts.length) throw new Error('WebPフレームを取り出せませんでした');
+  return concat(parts);
+}
+
+function buildAnimatedWebP(frameData, w, h, durationMs) {
+  const vp8x = new Uint8Array(10);
+  vp8x[0] = 0x02;               // ANIMATIONフラグ
+  w24(vp8x, 4, w - 1);
+  w24(vp8x, 7, h - 1);
+
+  const anim = new Uint8Array(6); // 背景透明 / ループ無限(0)
+
+  const parts = [makeChunk('VP8X', vp8x), makeChunk('ANIM', anim)];
+  for (const fd of frameData) {
+    const head = new Uint8Array(16);
+    w24(head, 0, 0);
+    w24(head, 3, 0);
+    w24(head, 6, w - 1);
+    w24(head, 9, h - 1);
+    w24(head, 12, durationMs);
+    head[15] = 0x02;            // ブレンドなし / 破棄なし
+    parts.push(makeChunk('ANMF', concat([head, fd])));
+  }
+
+  const body = concat(parts);
+  const out = new Uint8Array(12 + body.length);
+  out.set([0x52, 0x49, 0x46, 0x46], 0);            // RIFF
+  new DataView(out.buffer).setUint32(4, 4 + body.length, true);
+  out.set([0x57, 0x45, 0x42, 0x50], 8);            // WEBP
+  out.set(body, 12);
+  return out;
+}
+
+/* ---------- 降り方の設計 ---------- */
+const FPS_LADDER = [12, 10, 8, 6, 5, 4, 3, 2];
+const Q_LADDER   = [0.85, 0.8, 0.75, 0.7, 0.6, 0.5, 0.4, 0.3];
+const W_LADDER   = [320, 288, 256, 224, 192, 160];
+
+function buildSteps(w0, q0, f0) {
+  const steps = [{ w: w0, q: q0, f: f0 }];
+  const fps = FPS_LADDER.filter(x => x < f0);
+  for (const f of fps) steps.push({ w: w0, q: q0, f });
+  const minF = fps.length ? fps[fps.length - 1] : f0;
+  const qs = Q_LADDER.filter(x => x < q0 - 1e-9);
+  for (const q of qs) steps.push({ w: w0, q, f: minF });
+  const minQ = qs.length ? qs[qs.length - 1] : q0;
+  for (const w of W_LADDER.filter(x => x < w0)) steps.push({ w, q: minQ, f: minF });
+  return steps;
+}
+
+/* ---------- 実行 ---------- */
+el.run.addEventListener('click', run);
+
+async function run() {
+  const w0 = clamp(+el.w.value, 80, 1200);
+  const q0 = clamp(+el.q.value, 0.2, 1);
+  const f0 = clamp(Math.round(+el.f.value), 2, 30);
+  const limitBytes = clamp(+el.t.value, 50, 5000) * 1024;
+
+  el.run.disabled = true;
+  el.result.classList.remove('show');
+  el.ladder.classList.remove('show');
+  clearTrack();
+
+  const { t0, t1 } = trimRange();
+
+  try {
+    const stale = !masters
+      || masters.w !== Math.min(w0, videoEl.videoWidth)
+      || masters.fps < f0
+      || Math.abs(masters.t0 - t0) > 0.001
+      || Math.abs(masters.t1 - t1) > 0.001;
+    if (stale) {
+      encodeCache.clear();
+      masters = await extractMasters(videoEl, f0, w0, t0, t1);
+    }
+
+    const baseFps = masters.fps;
+    const steps = buildSteps(w0, q0, Math.min(f0, baseFps));
+    el.ladder.classList.add('show');
+
+    const rows = steps.map(s => addRow(s));
+    let scale = limitBytes * 1.6;
+    drawLimit(limitBytes, scale);
+
+    let winner = null;
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      el.status.textContent =
+        '検証中 ' + (i + 1) + '/' + steps.length +
+        ' — ' + s.w + 'px / 画質' + s.q + ' / ' + s.f + 'fps';
+
+      const enc = await encodeAt(s.w, s.q);
+      const stride = Math.max(1, Math.round(baseFps / s.f));
+      const picked = enc.data.filter((_, idx) => idx % stride === 0);
+      const durMs = Math.max(10, Math.round(1000 * stride / baseFps));
+      const bytes = buildAnimatedWebP(picked, enc.w, enc.h, durMs);
+
+      if (bytes.length > scale) { scale = bytes.length * 1.05; drawLimit(limitBytes, scale); redraw(rows, scale); }
+      const ok = bytes.length <= limitBytes;
+      fillRow(rows[i], bytes.length, scale, ok);
+
+      if (ok) {
+        winner = { s, bytes, w: enc.w, h: enc.h, fps: 1000 / durMs, frames: picked.length };
+        for (let j = i + 1; j < steps.length; j++) rows[j].root.remove();
+        break;
+      }
+    }
+
+    if (winner) {
+      showResult(winner, limitBytes);
+      el.status.textContent = '';
+    } else {
+      el.status.innerHTML = '<span class="warn">最小構成でも上限に収まりませんでした。動画を短く切るか、上限を上げてください。</span>';
+    }
+  } catch (err) {
+    el.status.innerHTML = '<span class="warn">' + err.message + '</span>';
+  } finally {
+    el.run.disabled = false;
+  }
+}
+
+function showResult(win, limitBytes) {
+  if (lastURL) URL.revokeObjectURL(lastURL);
+  const blob = new Blob([win.bytes], { type: 'image/webp' });
+  lastURL = URL.createObjectURL(blob);
+  el.preview.src = lastURL;
+  el.preview.style.maxWidth = win.w + 'px';
+  el.download.href = lastURL;
+  el.download.download = (videoFile.name.replace(/\.[^.]+$/, '') || 'output') + '.webp';
+  el.specs.innerHTML = [
+    ['サイズ', fmtSize(win.bytes.length) + ' / 上限 ' + fmtSize(limitBytes)],
+    ['解像度', win.w + '×' + win.h],
+    ['画質', String(win.s.q)],
+    ['fps', win.fps.toFixed(1)],
+    ['フレーム数', String(win.frames)],
+    ['長さ', (masters.t1 - masters.t0).toFixed(2) + ' 秒']
+  ].map(([k, v]) => '<div><dt>' + k + '</dt><dd>' + v + '</dd></div>').join('');
+  el.result.classList.add('show');
+}
+
+/* ---------- 表示 ---------- */
+function clearTrack() {
+  [...el.track.querySelectorAll('.row')].forEach(n => n.remove());
+}
+
+function addRow(s) {
+  const root = document.createElement('div');
+  root.className = 'row pending';
+  root.innerHTML =
+    '<div class="params">' + s.w + 'px · q' + s.q + ' · ' + s.f + 'fps</div>' +
+    '<div class="bar"><i></i></div>' +
+    '<div class="size">—</div>';
+  el.track.appendChild(root);
+  return { root, bar: root.querySelector('i'), size: root.querySelector('.size'), bytes: 0, done: false };
+}
+
+function fillRow(row, bytes, scale, ok) {
+  row.bytes = bytes;
+  row.done = true;
+  row.root.classList.remove('pending');
+  if (ok) row.root.classList.add('pass');
+  row.bar.style.width = Math.min(100, bytes / scale * 100) + '%';
+  row.size.textContent = fmtSize(bytes);
+}
+
+function redraw(rows, scale) {
+  rows.forEach(r => { if (r.done) r.bar.style.width = Math.min(100, r.bytes / scale * 100) + '%'; });
+}
+
+function drawLimit(limitBytes, scale) {
+  const r = Math.min(1, limitBytes / scale);
+  el.limit.style.left = 'calc(var(--barLeft) + var(--barW) * ' + r + ')';
+  el.limit.querySelector('.tag').textContent = fmtSize(limitBytes);
+}
+
+function fmtSize(b) {
+  return b < 1024 ? b + ' B' : (b / 1024).toFixed(1) + ' KB';
+}
+function clamp(v, a, b) {
+  return isFinite(v) ? Math.min(b, Math.max(a, v)) : a;
+}
+</script>
+</body>
+</html>
