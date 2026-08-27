@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>mp4 → animated webp（500KB以下）</title>
+<title>動画変換ツール</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -121,6 +121,27 @@
     .track{--barLeft:128px;--barW:calc(100% - 204px)}
   }
 
+  /* --- タブ --- */
+  nav.tabs{display:flex;gap:0;margin-bottom:24px;border-bottom:1px solid var(--rule)}
+  nav.tabs button{
+    appearance:none;background:none;border:none;cursor:pointer;
+    font-family:"IBM Plex Sans JP",sans-serif;font-size:14px;font-weight:600;
+    color:var(--ink-2);padding:10px 18px;margin-bottom:-1px;
+    border-bottom:2px solid transparent;
+  }
+  nav.tabs button:hover{color:var(--ink)}
+  nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+  nav.tabs button:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+  .tool{display:none}
+  .tool.active{display:block}
+  .tool > p.intro{margin:0 0 22px;color:var(--ink-2);font-size:13px}
+
+  #mResult{display:none}
+  #mResult.show{display:block}
+  .out video{max-width:100%;border:1px solid var(--rule);background:#000}
+  .checkline{display:flex;align-items:flex-start;gap:9px;font-size:13px;margin-top:14px}
+  .checkline input{margin:4px 0 0;accent-color:var(--under);flex:0 0 auto}
+
   #result{display:none}
   #result.show{display:block}
   .out{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
@@ -146,10 +167,17 @@
 <div class="wrap">
 
 <header>
-  <div class="eyebrow">mp4 → animated webp</div>
-  <h1>500KBに収まるまで、順番に落とす</h1>
-  <p>横幅350pxから開始。超えていたら fps → 画質 → 横幅 の順で1段ずつ下げ、最初に収まった時点で止めます。落としたくないときは、先に切り出し範囲を狭めてください。変換はすべてブラウザ内で行い、ファイルはどこにも送信されません。</p>
+  <div class="eyebrow">動画変換ツール</div>
+  <h1>指定したサイズに収まるまで、順番に落とす</h1>
 </header>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" id="tab-webp" aria-selected="true" aria-controls="tool-webp">animated webp にする</button>
+  <button role="tab" id="tab-mp4" aria-selected="false" aria-controls="tool-mp4">mp4 を軽くする</button>
+</nav>
+
+<section class="tool active" id="tool-webp" role="tabpanel" aria-labelledby="tab-webp">
+<p class="intro">mp4をanimated webpに変換します。横幅350pxから開始し、超えていたら fps → 画質 → 横幅 の順で1段ずつ下げ、最初に収まった時点で止めます。落としたくないときは、先に切り出し範囲を狭めてください。</p>
 
 <div class="panel">
   <h2>1. 動画を選ぶ</h2>
@@ -194,14 +222,85 @@
   </div>
 </div>
 
+</section>
+
+<section class="tool" id="tool-mp4" role="tabpanel" aria-labelledby="tab-mp4">
+<p class="intro">mp4を軽いmp4に作り直します。目標サイズと尺から必要なビットレートを逆算し、それに見合う横幅を600px〜350pxの範囲で選びます。書き出した結果が目標を超えていたら、ビットレートを下げて作り直します。</p>
+
+<div class="panel">
+  <h2>1. 動画を選ぶ</h2>
+  <div class="drop" id="mDrop" tabindex="0" role="button" aria-label="mp4ファイルを選択">
+    <strong>mp4をドロップ、またはクリックして選択</strong>
+    <span>横幅350px未満には縮めません</span>
+  </div>
+  <input type="file" id="mFile" accept="video/mp4,video/*" hidden>
+  <div class="meta" id="mMeta"></div>
+</div>
+
+<div class="panel">
+  <h2>2. 条件</h2>
+  <div class="fields">
+    <label><span class="cap">上限 KB</span><input type="number" id="mT" value="1024" min="100" max="20000" step="64"></label>
+    <label><span class="cap">横幅の上限 px</span><input type="number" id="mW" value="600" min="120" max="1920" step="10"></label>
+    <label><span class="cap">横幅の下限 px</span><input type="number" id="mMinW" value="350" min="120" max="1920" step="10"></label>
+    <label><span class="cap">fps上限</span><input type="number" id="mFps" value="30" min="5" max="60" step="1"></label>
+  </div>
+  <div class="fields trim">
+    <label><span class="cap">開始 秒</span><input type="number" id="mS0" value="0" min="0" step="0.1"></label>
+    <label><span class="cap">終了 秒</span><input type="number" id="mS1" value="0" min="0" step="0.1"></label>
+    <div class="span2"><span class="cap">切り出す長さ</span><div class="lenout" id="mLen">—</div></div>
+  </div>
+  <label class="checkline">
+    <input type="checkbox" id="mAudio">
+    <span>音声を残す（64kbpsぶん、映像に回せる分が減ります）</span>
+  </label>
+  <button class="run" id="mRun" disabled>変換する</button>
+  <div class="status" id="mStatus"></div>
+</div>
+
+<div class="panel" id="mLadder" style="display:none">
+  <h2>3. 書き出した結果</h2>
+  <div class="track" id="mTrack"><div class="limit" id="mLimit"><span class="tag"></span></div></div>
+</div>
+
+<div class="panel" id="mResult">
+  <h2>4. 結果</h2>
+  <div class="out">
+    <video id="mPreview" controls muted playsinline></video>
+    <div class="side">
+      <dl id="mSpecs"></dl>
+      <a class="dl" id="mDownload" download="output.mp4">mp4をダウンロード</a>
+    </div>
+  </div>
+</div>
+
+</section>
+
 <footer>
-  Chrome専用。animated webpはVP8フレームを自前でRIFFに束ねています。うまく再生されない動画があれば教えてください。
+  Chrome専用。変換はすべてブラウザ内で行い、ファイルはどこにも送信されません。
 </footer>
 
 </div>
 
-<script>
-"use strict";
+<script type="module">
+import { Input, Output, Conversion, BlobSource, BufferTarget, Mp4OutputFormat, ALL_FORMATS, Quality } from './mediabunny.min.mjs';
+
+/* ========== タブ切り替え ========== */
+(() => {
+  const tabs = [...document.querySelectorAll('nav.tabs button')];
+  tabs.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      tabs.forEach((b) => {
+        const on = b === btn;
+        b.setAttribute('aria-selected', String(on));
+        document.getElementById(b.getAttribute('aria-controls')).classList.toggle('active', on);
+      });
+    });
+  });
+})();
+
+/* ========== animated webp 変換 ========== */
+(() => {
 
 const $ = id => document.getElementById(id);
 const el = {
@@ -581,6 +680,299 @@ function fmtSize(b) {
 function clamp(v, a, b) {
   return isFinite(v) ? Math.min(b, Math.max(a, v)) : a;
 }
+})();
+
+/* ========== mp4 を軽くする ========== */
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    drop: $('mDrop'), file: $('mFile'), meta: $('mMeta'), run: $('mRun'), status: $('mStatus'),
+    ladder: $('mLadder'), track: $('mTrack'), limit: $('mLimit'),
+    result: $('mResult'), preview: $('mPreview'), specs: $('mSpecs'), download: $('mDownload'),
+    t: $('mT'), w: $('mW'), minW: $('mMinW'), fps: $('mFps'),
+    s0: $('mS0'), s1: $('mS1'), len: $('mLen'), audio: $('mAudio')
+  };
+
+  const AUDIO_BITRATE = 64000;      // 音声を残す場合に確保する分
+  const CONTAINER_MARGIN = 0.94;    // ヘッダーなど容器ぶんの余白
+  const MIN_BPP = 0.07;             // 1画素1フレームあたり、これを下回るなら横幅を落とす
+  const MAX_ATTEMPTS = 3;
+
+  let file = null;
+  let info = null;   // { duration, width, height, fps }
+  let lastURL = null;
+
+  /* ---------- ファイル選択 ---------- */
+  el.drop.addEventListener('click', () => el.file.click());
+  el.drop.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.file.click(); }
+  });
+  ['dragenter', 'dragover'].forEach((t) => el.drop.addEventListener(t, (e) => {
+    e.preventDefault(); el.drop.classList.add('hot');
+  }));
+  ['dragleave', 'drop'].forEach((t) => el.drop.addEventListener(t, (e) => {
+    e.preventDefault(); el.drop.classList.remove('hot');
+  }));
+  el.drop.addEventListener('drop', (e) => { if (e.dataTransfer.files[0]) pick(e.dataTransfer.files[0]); });
+  el.file.addEventListener('change', () => { if (el.file.files[0]) pick(el.file.files[0]); });
+
+  async function pick(f) {
+    file = f;
+    info = null;
+    el.result.classList.remove('show');
+    el.ladder.style.display = 'none';
+    el.status.textContent = '読み込み中…';
+    el.run.disabled = true;
+
+    try {
+      const input = new Input({ source: new BlobSource(f), formats: ALL_FORMATS });
+      const track = await input.getPrimaryVideoTrack();
+      if (!track) throw new Error('映像トラックが見つかりませんでした。');
+
+      const duration = await input.computeDuration();
+      let fps = 30;
+      try {
+        const stats = await track.computePacketStats(80);
+        if (stats && stats.averagePacketRate) fps = stats.averagePacketRate;
+      } catch { /* 取れなければ30とみなす */ }
+
+      info = { duration, width: track.displayWidth, height: track.displayHeight, fps };
+    } catch (err) {
+      el.status.innerHTML = '<span class="warn">' + (err.message || '動画を読み込めませんでした。') + '</span>';
+      return;
+    }
+
+    el.meta.classList.add('show');
+    el.meta.textContent =
+      f.name + ' / ' + info.width + '×' + info.height +
+      ' / ' + info.duration.toFixed(2) + '秒 / ' + Math.round(info.fps) + 'fps / ' + fmtSize(f.size);
+
+    el.s0.value = 0;
+    el.s0.max = info.duration.toFixed(2);
+    el.s1.value = info.duration.toFixed(2);
+    el.s1.max = info.duration.toFixed(2);
+    updateLen();
+    el.status.textContent = '';
+  }
+
+  el.s0.addEventListener('input', updateLen);
+  el.s1.addEventListener('input', updateLen);
+
+  function trimRange() {
+    const dur = info ? info.duration : 0;
+    const a = clamp(+el.s0.value, 0, dur);
+    const b = clamp(+el.s1.value, 0, dur);
+    return { t0: Math.min(a, b), t1: Math.max(a, b) };
+  }
+
+  function updateLen() {
+    if (!info) return;
+    const { t0, t1 } = trimRange();
+    const span = t1 - t0;
+    el.len.textContent = span.toFixed(2) + ' 秒';
+    el.len.classList.toggle('bad', span < 0.2);
+    el.run.disabled = span < 0.2;
+  }
+
+  /* ---------- 横幅を決める ---------- */
+  // ビットレートに見合う横幅を、上限から下限に向かって探す。
+  // 1画素あたりの情報量が薄いとブロックノイズが出るので、そうなる手前で止める。
+  function chooseWidth(videoBitrate, fps, maxW, minW) {
+    const srcW = info.width;
+    const top = Math.min(maxW, srcW);
+    const bottom = Math.min(minW, top);
+    const ladder = [];
+    for (let w = top; w >= bottom; w = Math.round(w * 0.9)) {
+      ladder.push(w - (w % 2));
+      if (w === bottom) break;
+    }
+    if (ladder[ladder.length - 1] !== bottom - (bottom % 2)) ladder.push(bottom - (bottom % 2));
+
+    for (const w of ladder) {
+      const h = Math.round(w * info.height / info.width);
+      if (videoBitrate / (w * h * fps) >= MIN_BPP) return w;
+    }
+    return ladder[ladder.length - 1];
+  }
+
+  /* ---------- 実行 ---------- */
+  el.run.addEventListener('click', run);
+
+  async function run() {
+    const limitBytes = clamp(+el.t.value, 100, 20000) * 1024;
+    const maxW = clamp(Math.round(+el.w.value), 120, 1920);
+    const minW = Math.min(clamp(Math.round(+el.minW.value), 120, 1920), maxW);
+    const fpsCap = clamp(Math.round(+el.fps.value), 5, 60);
+    const keepAudio = el.audio.checked;
+    const { t0, t1 } = trimRange();
+    const dur = t1 - t0;
+
+    const fps = Math.min(fpsCap, info.fps);
+
+    el.run.disabled = true;
+    el.result.classList.remove('show');
+    clearTrack();
+    el.ladder.style.display = 'block';
+
+    let scale = limitBytes * 1.6;
+    drawLimit(limitBytes, scale);
+
+    try {
+      let budget = limitBytes * 8 * CONTAINER_MARGIN / dur;
+      if (keepAudio) budget -= AUDIO_BITRATE;
+      let videoBitrate = Math.max(60000, Math.round(budget));
+
+      let winner = null;
+
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        const width = chooseWidth(videoBitrate, fps, maxW, minW);
+        const height = Math.round(width * info.height / info.width);
+        const row = addRow(width + 'px · ' + Math.round(videoBitrate / 1000) + 'kbps');
+
+        el.status.textContent = attempt + '回目を書き出しています… 0%';
+
+        const bytes = await encode({
+          width, fps, videoBitrate, keepAudio, t0, t1,
+          onProgress: (p) => {
+            el.status.textContent = attempt + '回目を書き出しています… ' + Math.round(p * 100) + '%';
+          }
+        });
+
+        if (bytes.byteLength > scale) { scale = bytes.byteLength * 1.05; drawLimit(limitBytes, scale); redrawRows(scale); }
+        const ok = bytes.byteLength <= limitBytes;
+        fillRow(row, bytes.byteLength, scale, ok);
+
+        if (ok) {
+          winner = { bytes, width, height, fps, videoBitrate, keepAudio, dur };
+          break;
+        }
+
+        // 超えた分だけビットレートを削って作り直す
+        const next = Math.round(videoBitrate * (limitBytes / bytes.byteLength) * 0.93);
+        if (next < 60000) {
+          el.status.innerHTML = '<span class="warn">これ以上ビットレートを下げると映像が保ちません。尺を短くするか、上限を上げてください。</span>';
+          el.run.disabled = false;
+          return;
+        }
+        videoBitrate = next;
+      }
+
+      if (winner) {
+        showResult(winner, limitBytes);
+        el.status.textContent = '';
+      } else {
+        el.status.innerHTML = '<span class="warn">' + MAX_ATTEMPTS + '回試しましたが上限に収まりませんでした。尺を短くするか、上限を上げてください。</span>';
+      }
+    } catch (err) {
+      el.status.innerHTML = '<span class="warn">' + (err.message || '変換に失敗しました。') + '</span>';
+    } finally {
+      el.run.disabled = false;
+    }
+  }
+
+  async function encode(opt) {
+    const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
+    const output = new Output({
+      format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
+      target: new BufferTarget()
+    });
+
+    const conversion = await Conversion.init({
+      input,
+      output,
+      video: {
+        width: opt.width,
+        frameRate: opt.fps,
+        quality: new Quality(opt.videoBitrate),
+        forceTranscode: true
+      },
+      audio: opt.keepAudio
+        ? { codec: 'aac', quality: new Quality(AUDIO_BITRATE), forceTranscode: true }
+        : { discard: true },
+      trim: { start: opt.t0, end: opt.t1 },
+      showWarnings: false
+    });
+
+    if (!conversion.isValid) {
+      const why = conversion.discardedTracks.map((d) => d.reason).join(', ');
+      throw new Error('この動画は変換できませんでした（' + (why || '理由不明') + '）。');
+    }
+
+    conversion.onProgress = (p) => opt.onProgress(p);
+    await conversion.execute();
+
+    const buf = output.target.buffer;
+    if (!buf) throw new Error('書き出しに失敗しました。');
+    return buf;
+  }
+
+  function showResult(win, limitBytes) {
+    if (lastURL) URL.revokeObjectURL(lastURL);
+    const blob = new Blob([win.bytes], { type: 'video/mp4' });
+    lastURL = URL.createObjectURL(blob);
+    el.preview.src = lastURL;
+    el.download.href = lastURL;
+    el.download.download = (file.name.replace(/\.[^.]+$/, '') || 'output') + '-small.mp4';
+    el.specs.innerHTML = [
+      ['サイズ', fmtSize(win.bytes.byteLength) + ' / 上限 ' + fmtSize(limitBytes)],
+      ['解像度', win.width + '×' + win.height],
+      ['ビットレート', Math.round(win.videoBitrate / 1000) + ' kbps'],
+      ['fps', win.fps.toFixed(1)],
+      ['音声', win.keepAudio ? 'あり' : 'なし'],
+      ['長さ', win.dur.toFixed(2) + ' 秒']
+    ].map(([k, v]) => '<div><dt>' + k + '</dt><dd>' + v + '</dd></div>').join('');
+    el.result.classList.add('show');
+  }
+
+  /* ---------- 表示 ---------- */
+  const rows = [];
+
+  function clearTrack() {
+    rows.length = 0;
+    [...el.track.querySelectorAll('.row')].forEach((n) => n.remove());
+  }
+
+  function addRow(label) {
+    const root = document.createElement('div');
+    root.className = 'row pending';
+    root.innerHTML =
+      '<div class="params"></div><div class="bar"><i></i></div><div class="size">書き出し中</div>';
+    root.querySelector('.params').textContent = label;
+    el.track.appendChild(root);
+    const row = { root, bar: root.querySelector('i'), size: root.querySelector('.size'), bytes: 0, done: false };
+    rows.push(row);
+    return row;
+  }
+
+  function fillRow(row, bytes, scale, ok) {
+    row.bytes = bytes;
+    row.done = true;
+    row.root.classList.remove('pending');
+    if (ok) row.root.classList.add('pass');
+    row.bar.style.width = Math.min(100, bytes / scale * 100) + '%';
+    row.size.textContent = fmtSize(bytes);
+  }
+
+  function redrawRows(scale) {
+    rows.forEach((r) => { if (r.done) r.bar.style.width = Math.min(100, r.bytes / scale * 100) + '%'; });
+  }
+
+  function drawLimit(limitBytes, scale) {
+    const r = Math.min(1, limitBytes / scale);
+    el.limit.style.left = 'calc(var(--barLeft) + var(--barW) * ' + r + ')';
+    el.limit.querySelector('.tag').textContent = fmtSize(limitBytes);
+  }
+
+  function fmtSize(b) {
+    return b < 1024 ? b + ' B' : b < 1024 * 1024
+      ? (b / 1024).toFixed(1) + ' KB'
+      : (b / 1024 / 1024).toFixed(2) + ' MB';
+  }
+  function clamp(v, a, b) {
+    return isFinite(v) ? Math.min(b, Math.max(a, v)) : a;
+  }
+})();
+
 </script>
 </body>
 </html>
