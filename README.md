@@ -31,9 +31,3 @@ Chrome専用。`OffscreenCanvas.convertToBlob` の webp 出力に依存してい
 3. 1分ほどでGitHub Pagesに反映される
 
 ローカルで直したい場合は、ファイルをダウンロードしてブラウザで開けばそのまま動作確認できる。サーバーもビルドも不要。
-
-## 経緯
-
-もともとCloudflare Workers（荒木の個人アカウント）に置いていたが、個人アカウントに依存するとURLごと失われるため、組織のGitHub Pagesに移した。Worker側は役目を終えている。
-
-同じ理由で移したいツールに `code-extract` があるが、そちらは対象URLを取得するプロキシが必要なため、Pagesには移せずWorkerのまま残っている。
