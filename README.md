@@ -1,6 +1,6 @@
 # 動画変換ツール
 
-公開URL: https://squad-customersupport.github.io/mp4-to-webp/
+公開URL: https://squad-customersupport.github.io/video-shrink/
 
 タブで2つのツールを切り替えます。どちらも変換はブラウザ内で完結し、動画ファイルはどこにも送信されません。**Chrome専用。**
 
