@@ -883,11 +883,11 @@ function clamp(v, a, b) {
       video: {
         width: opt.width,
         frameRate: opt.fps,
-        quality: new Quality(opt.videoBitrate),
+        quality: new Quality({ bitrate: Math.round(opt.videoBitrate), bitrateMode: 'constant' }),
         forceTranscode: true
       },
       audio: opt.keepAudio
-        ? { codec: 'aac', quality: new Quality(AUDIO_BITRATE), forceTranscode: true }
+        ? { codec: 'aac', quality: new Quality({ bitrate: AUDIO_BITRATE }), forceTranscode: true }
         : { discard: true },
       trim: { start: opt.t0, end: opt.t1 },
       showWarnings: false
