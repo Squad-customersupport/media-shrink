@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>動画変換ツール</title>
+<title>変換ツール</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -142,6 +142,11 @@
   .checkline{display:flex;align-items:flex-start;gap:9px;font-size:13px;margin-top:14px}
   .checkline input{margin:4px 0 0;accent-color:var(--under);flex:0 0 auto}
 
+  #iResult{display:none}
+  #iResult.show{display:block}
+  #iLadder{display:none}
+  #iLadder.show{display:block}
+  select{font:inherit;padding:7px 8px;border:1px solid var(--rule);background:#fff;width:100%}
   #result{display:none}
   #result.show{display:block}
   .out{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
@@ -167,13 +172,14 @@
 <div class="wrap">
 
 <header>
-  <div class="eyebrow">動画変換ツール　<span style="opacity:.7">rev.2</span></div>
+  <div class="eyebrow">変換ツール　<span style="opacity:.7">rev.3</span></div>
   <h1>指定したサイズに収まるまで、順番に落とす</h1>
 </header>
 
 <nav class="tabs" role="tablist">
   <button role="tab" id="tab-webp" aria-selected="true" aria-controls="tool-webp">animated webp にする</button>
   <button role="tab" id="tab-mp4" aria-selected="false" aria-controls="tool-mp4">mp4 を軽くする</button>
+  <button role="tab" id="tab-img" aria-selected="false" aria-controls="tool-img">画像を軽くする</button>
 </nav>
 
 <section class="tool active" id="tool-webp" role="tabpanel" aria-labelledby="tab-webp">
@@ -270,6 +276,57 @@
     <div class="side">
       <dl id="mSpecs"></dl>
       <a class="dl" id="mDownload" download="output.mp4">mp4をダウンロード</a>
+    </div>
+  </div>
+</div>
+
+</section>
+
+<section class="tool" id="tool-img" role="tabpanel" aria-labelledby="tab-img">
+<p class="intro">jpg / png を軽くします。横幅600px・999KB以下が基本で、たいていは1手目で収まります。超えた場合だけ画質を1段ずつ下げ、それでも収まらなければ横幅を落とします。</p>
+
+<div class="panel">
+  <h2>1. 画像を選ぶ</h2>
+  <div class="drop" id="iDrop" tabindex="0" role="button" aria-label="画像ファイルを選択">
+    <strong>jpg / png をドロップ、またはクリックして選択</strong>
+    <span>横幅600pxに揃えます。元より大きくはしません</span>
+  </div>
+  <input type="file" id="iFile" accept="image/jpeg,image/png" hidden>
+  <div class="meta" id="iMeta"></div>
+</div>
+
+<div class="panel">
+  <h2>2. 開始条件</h2>
+  <div class="fields">
+    <label><span class="cap">上限 KB</span><input type="number" id="iT" value="999" min="10" max="10000" step="1"></label>
+    <label><span class="cap">横幅 px</span><input type="number" id="iW" value="600" min="80" max="4000" step="10"></label>
+    <label><span class="cap">収まらない時の下限 px</span><input type="number" id="iMinW" value="350" min="80" max="4000" step="10"></label>
+    <label><span class="cap">画質 0–1</span><input type="number" id="iQ" value="0.92" min="0.2" max="1" step="0.02"></label>
+  </div>
+  <div class="fields" style="margin-top:14px">
+    <label class="span2"><span class="cap">出力形式</span>
+      <select id="iFmt">
+        <option value="image/webp">webp（同じ画質で一番軽い）</option>
+        <option value="image/jpeg">jpg（どこでも表示できる）</option>
+      </select>
+    </label>
+  </div>
+  <button class="run" id="iRun" disabled>変換する</button>
+  <div class="status" id="iStatus"></div>
+</div>
+
+<div class="panel" id="iLadder">
+  <h2>3. 試した組み合わせ</h2>
+  <div class="track" id="iTrack"><div class="limit" id="iLimit"><span class="tag"></span></div></div>
+</div>
+
+<div class="panel" id="iResult">
+  <h2>4. 結果</h2>
+  <div class="out">
+    <img id="iPreview" alt="変換結果のプレビュー">
+    <div class="side">
+      <dl id="iSpecs"></dl>
+      <a class="dl" id="iDownload" download="output.webp">画像をダウンロード</a>
     </div>
   </div>
 </div>
@@ -967,6 +1024,224 @@ function clamp(v, a, b) {
     return b < 1024 ? b + ' B' : b < 1024 * 1024
       ? (b / 1024).toFixed(1) + ' KB'
       : (b / 1024 / 1024).toFixed(2) + ' MB';
+  }
+  function clamp(v, a, b) {
+    return isFinite(v) ? Math.min(b, Math.max(a, v)) : a;
+  }
+})();
+
+
+/* ========== 画像を軽くする ========== */
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    drop: $('iDrop'), file: $('iFile'), meta: $('iMeta'), run: $('iRun'), status: $('iStatus'),
+    ladder: $('iLadder'), track: $('iTrack'), limit: $('iLimit'),
+    result: $('iResult'), preview: $('iPreview'), specs: $('iSpecs'), download: $('iDownload'),
+    t: $('iT'), w: $('iW'), minW: $('iMinW'), q: $('iQ'), fmt: $('iFmt')
+  };
+
+  // 画質は上から順に1段ずつ下げる。横幅を削るのは最後の手段
+  const QUALITY_LADDER = [0.92, 0.85, 0.78, 0.70, 0.62, 0.54, 0.46, 0.38, 0.30];
+  const WIDTH_RATIO = 0.8;
+
+  let bitmap = null, imgFile = null, hasAlpha = false, lastURL = null;
+
+  el.drop.addEventListener('click', () => el.file.click());
+  el.drop.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.file.click(); }
+  });
+  ['dragenter', 'dragover'].forEach((t) => el.drop.addEventListener(t, (e) => {
+    e.preventDefault(); el.drop.classList.add('hot');
+  }));
+  ['dragleave', 'drop'].forEach((t) => el.drop.addEventListener(t, (e) => {
+    e.preventDefault(); el.drop.classList.remove('hot');
+  }));
+  el.drop.addEventListener('drop', (e) => { if (e.dataTransfer.files[0]) pick(e.dataTransfer.files[0]); });
+  el.file.addEventListener('change', (e) => { if (e.target.files[0]) pick(e.target.files[0]); });
+
+  async function pick(f) {
+    if (!/^image\/(jpeg|png)$/.test(f.type)) {
+      el.status.innerHTML = '<span class="warn">jpg または png を選んでください。</span>';
+      return;
+    }
+    el.status.textContent = '読み込み中…';
+    try {
+      if (bitmap) bitmap.close();
+      bitmap = await createImageBitmap(f);
+    } catch (err) {
+      el.status.innerHTML = '<span class="warn">画像を読み込めませんでした。</span>';
+      return;
+    }
+    imgFile = f;
+    hasAlpha = f.type === 'image/png' && detectAlpha(bitmap);
+
+    // 元より大きくしない
+    if (+el.w.value > bitmap.width) el.w.value = bitmap.width;
+
+    el.meta.classList.add('show');
+    el.meta.textContent =
+      f.name + '　' + bitmap.width + '×' + bitmap.height + '　' + fmtSize(f.size) +
+      (hasAlpha ? '　透過あり' : '');
+    el.run.disabled = false;
+    el.status.textContent = '';
+    updateAlphaNote();
+  }
+
+  // 四隅と中央を見て透過の有無をざっくり判定する
+  function detectAlpha(bm) {
+    const c = document.createElement('canvas');
+    c.width = Math.min(bm.width, 200); c.height = Math.min(bm.height, 200);
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(bm, 0, 0, c.width, c.height);
+    const d = ctx.getImageData(0, 0, c.width, c.height).data;
+    for (let i = 3; i < d.length; i += 4) { if (d[i] < 250) return true; }
+    return false;
+  }
+
+  el.fmt.addEventListener('change', updateAlphaNote);
+  function updateAlphaNote() {
+    if (hasAlpha && el.fmt.value === 'image/jpeg') {
+      el.status.innerHTML = '<span class="warn">透過部分は白で塗りつぶされます。透過を残すなら webp を選んでください。</span>';
+    } else if (el.status.querySelector('.warn')) {
+      el.status.textContent = '';
+    }
+  }
+
+  function buildSteps(w0, minW, q0) {
+    const widths = [];
+    let w = Math.round(w0);
+    while (true) {
+      widths.push(w);
+      const next = Math.round(w * WIDTH_RATIO);
+      if (next < minW || widths.length >= 6) break;
+      w = next;
+    }
+    if (minW < w0 && widths[widths.length - 1] > minW) widths.push(Math.round(minW));
+
+    const qs = QUALITY_LADDER.filter((q) => q <= q0);
+    if (!qs.length || qs[0] !== q0) qs.unshift(q0);
+
+    const steps = [];
+    widths.forEach((width) => qs.forEach((quality) => steps.push({ w: width, q: quality })));
+    return steps;
+  }
+
+  async function encodeAt(width, quality, mime) {
+    const h = Math.max(1, Math.round(bitmap.height * width / bitmap.width));
+    const c = document.createElement('canvas');
+    c.width = width; c.height = h;
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    if (mime === 'image/jpeg') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, h); }
+    ctx.drawImage(bitmap, 0, 0, width, h);
+    const blob = await new Promise((res) => c.toBlob(res, mime, quality));
+    if (!blob) throw new Error('この形式で書き出せませんでした。');
+    return { blob, w: width, h, q: quality };
+  }
+
+  el.run.addEventListener('click', run);
+
+  async function run() {
+    if (!bitmap) return;
+    el.run.disabled = true;
+    el.result.classList.remove('show');
+    el.ladder.classList.add('show');
+    clearTrack();
+
+    const limitBytes = clamp(+el.t.value, 10, 10000) * 1024;
+    const minW = clamp(+el.minW.value, 80, 4000);
+    const w0 = Math.min(clamp(+el.w.value, 80, 4000), bitmap.width);
+    const q0 = clamp(+el.q.value, 0.2, 1);
+    const mime = el.fmt.value;
+
+    const steps = buildSteps(w0, Math.min(minW, w0), q0);
+    let scale = limitBytes * 1.6;
+    drawLimit(limitBytes, scale);
+
+    const rows = [];
+    let win = null;
+
+    try {
+      for (let i = 0; i < steps.length; i++) {
+        const s = steps[i];
+        el.status.textContent = '試行 ' + (i + 1) + ' / ' + steps.length +
+          '（' + s.w + 'px · q' + s.q.toFixed(2) + '）';
+        const row = addRow(s);
+        rows.push(row);
+
+        const out = await encodeAt(s.w, s.q, mime);
+        const bytes = out.blob.size;
+
+        if (bytes > scale) { scale = bytes * 1.05; drawLimit(limitBytes, scale); redraw(rows, scale); }
+        const ok = bytes <= limitBytes;
+        fillRow(row, bytes, scale, ok);
+
+        if (ok) { win = out; break; }
+        await new Promise((r) => setTimeout(r, 0));
+      }
+
+      if (win) {
+        showResult(win, limitBytes, mime);
+        el.status.textContent = '';
+      } else {
+        el.status.innerHTML = '<span class="warn">最小構成でも上限に収まりませんでした。横幅の下限を小さくするか、上限を上げてください。</span>';
+      }
+    } catch (err) {
+      el.status.innerHTML = '<span class="warn">' + err.message + '</span>';
+    }
+    el.run.disabled = false;
+  }
+
+  function showResult(win, limitBytes, mime) {
+    if (lastURL) URL.revokeObjectURL(lastURL);
+    lastURL = URL.createObjectURL(win.blob);
+    const ext = mime === 'image/webp' ? '.webp' : '.jpg';
+    el.preview.src = lastURL;
+    el.preview.style.maxWidth = win.w + 'px';
+    el.download.href = lastURL;
+    el.download.download = (imgFile.name.replace(/\.[^.]+$/, '') || 'output') + ext;
+    el.download.textContent = (mime === 'image/webp' ? 'webp' : 'jpg') + 'をダウンロード';
+    el.specs.innerHTML = [
+      ['サイズ', fmtSize(win.blob.size) + ' / 上限 ' + fmtSize(limitBytes)],
+      ['元から', Math.round(100 - win.blob.size / imgFile.size * 100) + '% 削減'],
+      ['解像度', win.w + '×' + win.h + (win.w < bitmap.width ? '（元 ' + bitmap.width + '×' + bitmap.height + '）' : '')],
+      ['画質', win.q.toFixed(2)],
+      ['形式', mime === 'image/webp' ? 'webp' : 'jpg']
+    ].map(([k, v]) => '<div><dt>' + k + '</dt><dd>' + v + '</dd></div>').join('');
+    el.result.classList.add('show');
+  }
+
+  function clearTrack() {
+    [...el.track.querySelectorAll('.row')].forEach((n) => n.remove());
+  }
+  function addRow(s) {
+    const root = document.createElement('div');
+    root.className = 'row pending';
+    root.innerHTML =
+      '<div class="params">' + s.w + 'px · q' + s.q.toFixed(2) + '</div>' +
+      '<div class="bar"><i></i></div>' +
+      '<div class="size">—</div>';
+    el.track.appendChild(root);
+    return { root, bar: root.querySelector('i'), size: root.querySelector('.size'), bytes: 0, done: false };
+  }
+  function fillRow(row, bytes, scale, ok) {
+    row.bytes = bytes; row.done = true;
+    row.root.classList.remove('pending');
+    if (ok) row.root.classList.add('pass');
+    row.bar.style.width = Math.min(100, bytes / scale * 100) + '%';
+    row.size.textContent = fmtSize(bytes);
+  }
+  function redraw(rows, scale) {
+    rows.forEach((r) => { if (r.done) r.bar.style.width = Math.min(100, r.bytes / scale * 100) + '%'; });
+  }
+  function drawLimit(limitBytes, scale) {
+    const r = Math.min(1, limitBytes / scale);
+    el.limit.style.left = 'calc(var(--barLeft) + var(--barW) * ' + r + ')';
+    el.limit.querySelector('.tag').textContent = fmtSize(limitBytes);
+  }
+  function fmtSize(b) {
+    return b < 1024 ? b + ' B' : (b / 1024).toFixed(1) + ' KB';
   }
   function clamp(v, a, b) {
     return isFinite(v) ? Math.min(b, Math.max(a, v)) : a;
