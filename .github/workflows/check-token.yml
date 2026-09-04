@@ -23,6 +23,11 @@ jobs:
           else
             echo "token charset: 大文字や g 以降の文字を含む = トークンの値の形"
           fi
+          if [ "$TOKEN" = "$ACC" ]; then
+            echo "!!! TOKEN の中身が ACCOUNT_ID と完全に同じ !!!"
+          else
+            echo "TOKEN と ACCOUNT_ID は別の値"
+          fi
           echo "--- verify ---"
           code=$(curl -s -o /tmp/v.json -w '%{http_code}' \
             https://api.cloudflare.com/client/v4/user/tokens/verify \
