@@ -18,6 +18,11 @@ jobs:
           else
             echo "token format: NG (空白・改行・その他の文字が混入)"
           fi
+          if printf '%s' "$TOKEN" | grep -qE '^[0-9a-f]+$'; then
+            echo "token charset: 0-9 と a-f のみ = トークンIDの形（トークンの値ではない）"
+          else
+            echo "token charset: 大文字や g 以降の文字を含む = トークンの値の形"
+          fi
           echo "--- verify ---"
           code=$(curl -s -o /tmp/v.json -w '%{http_code}' \
             https://api.cloudflare.com/client/v4/user/tokens/verify \
