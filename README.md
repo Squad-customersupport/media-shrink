@@ -1,6 +1,9 @@
 # 変換ツール
 
-公開URL: https://squad-customersupport.github.io/media-shrink/
+公開URL（同じ中身が2か所にあります）
+
+- Cloudflare Pages: https://media-shrink.pages.dev
+- GitHub Pages: https://squad-customersupport.github.io/media-shrink/
 
 タブで3つのツールを切り替えます。どれも変換はブラウザ内で完結し、ファイルはどこにも送信されません。**Chrome専用。**
 
@@ -62,5 +65,15 @@ png の透過は、画像の四隅と中央あたりをサンプリングして�
 1. GitHubで `index.html` を開き、鉛筆アイコンから編集する
 2. Commit changes を押す
 3. 1分ほどでGitHub Pagesに反映される
+
+**Cloudflare Pages は自動では反映されません。** GitHubとは連携しておらず、ファイルを直接置く方式で公開しているためです。Cloudflare側も直すには、リポジトリを手元に落として次を実行します。
+
+```
+npx wrangler pages deploy . --project-name media-shrink --branch main
+```
+
+（`README.md` や `notes/` も一緒に上がりますが、公開されて困るものではありません。厳密に3ファイルだけにしたい場合は `index.html` / `mediabunny.min.mjs` / `LICENSE-mediabunny.txt` を別フォルダにコピーしてそのフォルダを指定してください。）
+
+どちらか一方だけを使う運用にするなら、使わない側の公開を止めたほうが、古い方を見てしまう事故を防げます。
 
 ローカルで直す場合、`index.html` はESモジュールを読むので `file://` で開くとCORSで止まります。フォルダで `python3 -m http.server` を立てて開いてください。
