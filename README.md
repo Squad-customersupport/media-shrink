@@ -1,9 +1,8 @@
 # 変換ツール
 
-公開URL（同じ中身が2か所にあります）
+公開URL: https://media-shrink.pages.dev
 
-- Cloudflare Pages: https://media-shrink.pages.dev
-- GitHub Pages: https://squad-customersupport.github.io/media-shrink/
+旧URL（https://squad-customersupport.github.io/media-shrink/）は、新URLへの案内ページに変わっています。すでに案内した人がたどり着けるように残してあるだけです。
 
 タブで3つのツールを切り替えます。どれも変換はブラウザ内で完結し、ファイルはどこにも送信されません。**Chrome専用。**
 
@@ -62,18 +61,19 @@ png の透過は、画像の四隅と中央あたりをサンプリングして�
 
 ## 直しかた
 
-1. GitHubで `index.html` を開き、鉛筆アイコンから編集する
+1. GitHubで **`main` ブランチの** `index.html` を開き、鉛筆アイコンから編集する
 2. Commit changes を押す
-3. 1分ほどでGitHub Pagesに反映される
+3. 1〜2分で https://media-shrink.pages.dev に反映される
 
-**Cloudflare Pages は自動では反映されません。** GitHubとは連携しておらず、ファイルを直接置く方式で公開しているためです。Cloudflare側も直すには、リポジトリを手元に落として次を実行します。
+コマンドを打つ必要はありません。`main` を更新すると GitHub Actions が動き、Cloudflare Pages へ自動でアップロードされます（`.github/workflows/deploy.yml`）。
 
-```
-npx wrangler pages deploy . --project-name media-shrink --branch main
-```
+反映されないときは、GitHubの **Actions** タブを見てください。赤い×が付いていれば、そこにエラーの内容が出ています。手動でやり直す場合は Actions タブ →「Deploy to Cloudflare Pages」→「Run workflow」。
 
-（`README.md` や `notes/` も一緒に上がりますが、公開されて困るものではありません。厳密に3ファイルだけにしたい場合は `index.html` / `mediabunny.min.mjs` / `LICENSE-mediabunny.txt` を別フォルダにコピーしてそのフォルダを指定してください。）
+公開されるのは `index.html` / `mediabunny.min.mjs` / `LICENSE-mediabunny.txt` の3つだけです。`README.md` と `notes/` は公開ページには載りません。
 
-どちらか一方だけを使う運用にするなら、使わない側の公開を止めたほうが、古い方を見てしまう事故を防げます。
+### ブランチについて
+
+- `main` — ツール本体。**直すのはこちら**
+- `gh-pages` — 旧URLに置いてある案内ページだけ。触る必要はありません
 
 ローカルで直す場合、`index.html` はESモジュールを読むので `file://` で開くとCORSで止まります。フォルダで `python3 -m http.server` を立てて開いてください。
