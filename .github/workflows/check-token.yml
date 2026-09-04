@@ -1,0 +1,32 @@
+# 一時的な確認用。原因が分かったら削除する。
+name: check token
+on:
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: シークレットの状態を確認
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACC: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "token length: ${#TOKEN}  (期待値: 40)"
+          echo "account length: ${#ACC}  (期待値: 32)"
+          if printf '%s' "$TOKEN" | grep -qE '^[A-Za-z0-9_.-]+$'; then
+            echo "token format: OK (英数字と記号のみ)"
+          else
+            echo "token format: NG (空白・改行・その他の文字が混入)"
+          fi
+          echo "--- verify ---"
+          code=$(curl -s -o /tmp/v.json -w '%{http_code}' \
+            https://api.cloudflare.com/client/v4/user/tokens/verify \
+            -H "Authorization: Bearer $TOKEN")
+          echo "http status: $code"
+          head -c 600 /tmp/v.json; echo
+          echo "--- account access ---"
+          code2=$(curl -s -o /tmp/a.json -w '%{http_code}' \
+            "https://api.cloudflare.com/client/v4/accounts/$ACC/pages/projects" \
+            -H "Authorization: Bearer $TOKEN")
+          echo "http status: $code2"
+          head -c 400 /tmp/a.json; echo
